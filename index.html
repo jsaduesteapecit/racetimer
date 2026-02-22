@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0e17">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fun Run Timer">
+<title>🏃 Fun Run Timer</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --card: #1a2235;
+    --accent: #f97316;
+    --accent2: #facc15;
+    --green: #22c55e;
+    --red: #ef4444;
+    --text: #f1f5f9;
+    --muted: #64748b;
+    --border: #1e293b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 10% 20%, rgba(249,115,22,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 90% 80%, rgba(250,204,21,0.06) 0%, transparent 50%);
+  }
+
+  /* ===== LOCK SCREEN ===== */
+  #lockScreen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse at 20% 30%, rgba(249,115,22,0.13) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 70%, rgba(250,204,21,0.09) 0%, transparent 55%);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 999; flex-direction: column;
+  }
+  #lockScreen.hidden { animation: lock-out 0.35s ease forwards; }
+  @keyframes lock-out { to { opacity:0; transform:scale(1.04); pointer-events:none; } }
+
+  .lock-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 48px 40px;
+    width: 380px; max-width: 94vw;
+    text-align: center;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+    animation: lock-in 0.4s ease;
+  }
+  @keyframes lock-in {
+    from { opacity:0; transform:translateY(24px) scale(0.97); }
+    to   { opacity:1; transform:translateY(0) scale(1); }
+  }
+
+  .lock-icon    { font-size:3.5rem; margin-bottom:12px; filter:drop-shadow(0 0 20px rgba(249,115,22,0.4)); }
+  .lock-title   { font-family:'Bebas Neue',cursive; font-size:2.2rem; letter-spacing:3px; color:var(--accent); margin-bottom:4px; }
+  .lock-sub     { font-family:'DM Mono',monospace; font-size:0.75rem; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:36px; }
+
+  .pin-dots { display:flex; justify-content:center; gap:14px; margin-bottom:24px; min-height:20px; }
+  .pin-dot  { width:14px; height:14px; border-radius:50%; border:2px solid var(--border); background:transparent; transition:all 0.15s; }
+  .pin-dot.filled { background:var(--accent); border-color:var(--accent); box-shadow:0 0 10px rgba(249,115,22,0.5); transform:scale(1.1); }
+
+  .pin-wrap { position:relative; margin-bottom:18px; }
+  .pin-wrap input {
+    width:100%; background:var(--surface); border:2px solid var(--border);
+    border-radius:10px; padding:13px 48px 13px 18px;
+    color:var(--text); font-family:'DM Mono',monospace; font-size:1.15rem;
+    letter-spacing:3px; outline:none; transition:border-color 0.2s; text-align:center;
+  }
+  .pin-wrap input:focus { border-color:var(--accent); }
+  .pin-wrap input.shake { animation:shake 0.35s ease; border-color:var(--red); }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)}
+    40%{transform:translateX(8px)}  60%{transform:translateX(-5px)} 80%{transform:translateX(5px)}
+  }
+  .pin-eye {
+    position:absolute; right:14px; top:50%; transform:translateY(-50%);
+    background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; padding:4px;
+  }
+  .pin-eye:hover { color:var(--text); }
+
+  .lock-btn {
+    width:100%; background:var(--accent); color:#000;
+    font-family:'Bebas Neue',cursive; font-size:1.4rem; letter-spacing:3px;
+    padding:14px; border:none; border-radius:10px; cursor:pointer; transition:all 0.15s;
+  }
+  .lock-btn:hover { filter:brightness(1.1); transform:translateY(-2px); box-shadow:0 8px 24px rgba(249,115,22,0.3); }
+  .lock-btn:disabled { opacity:0.4; cursor:not-allowed; transform:none; box-shadow:none; }
+
+  .lock-error    { font-family:'DM Mono',monospace; font-size:0.78rem; color:var(--red);   margin-top:14px; min-height:18px; }
+  .lock-attempts { font-family:'DM Mono',monospace; font-size:0.7rem;  color:var(--muted); margin-top:8px;  min-height:16px; }
+
+  /* ===== APP SHELL ===== */
+  #appShell { display:none; }
+  #appShell.visible { display:block; }
+
+  header {
+    padding:20px 28px; display:flex; align-items:center;
+    justify-content:space-between; border-bottom:1px solid var(--border);
+    flex-wrap:wrap; gap:10px;
+  }
+  .logo { font-family:'Bebas Neue',cursive; font-size:2.2rem; letter-spacing:2px; color:var(--accent); display:flex; align-items:center; gap:10px; }
+  .logo span { color:var(--text); }
+
+  .master-clock {
+    font-family:'DM Mono',monospace; font-size:2.6rem; font-weight:500;
+    color:var(--accent2); letter-spacing:4px; text-shadow:0 0 30px rgba(250,204,21,0.4);
+  }
+  .controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+  .btn {
+    font-family:'DM Mono',monospace; font-size:0.8rem; font-weight:500;
+    padding:10px 18px; border:none; border-radius:6px; cursor:pointer;
+    transition:all 0.15s; letter-spacing:1px; text-transform:uppercase;
+  }
+  .btn-start    { background:var(--green);   color:#000; }
+  .btn-start:hover  { filter:brightness(1.15); transform:translateY(-1px); }
+  .btn-stop     { background:var(--red);     color:#fff; }
+  .btn-stop:hover   { filter:brightness(1.15); }
+  .btn-reset    { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
+  .btn-reset:hover  { color:var(--text); }
+  .btn-export   { background:var(--accent2); color:#000; }
+  .btn-export:hover { filter:brightness(1.1); transform:translateY(-1px); }
+  .btn-settings { background:var(--surface); color:var(--muted); border:1px solid var(--border); font-size:1rem; padding:10px 13px; }
+  .btn-settings:hover { color:var(--text); border-color:var(--accent); }
+  .btn-lock     { background:var(--surface); color:var(--muted); border:1px solid var(--border); font-size:1rem; padding:10px 13px; }
+  .btn-lock:hover { color:var(--red); border-color:var(--red); }
+
+  main { max-width:1100px; margin:0 auto; padding:28px; display:grid; grid-template-columns:340px 1fr; gap:22px; }
+
+  .panel { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px; }
+  .panel h2 { font-family:'Bebas Neue',cursive; font-size:1.4rem; letter-spacing:2px; color:var(--muted); margin-bottom:20px; }
+
+  .bib-input-group { display:flex; flex-direction:column; gap:14px; }
+  .bib-field       { display:flex; flex-direction:column; gap:6px; }
+
+  label { font-size:0.73rem; font-family:'DM Mono',monospace; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+
+  input[type="text"], input[type="number"], input[type="password"] {
+    background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    padding:12px 16px; color:var(--text); font-family:'DM Mono',monospace;
+    font-size:1.3rem; width:100%; outline:none; transition:border-color 0.2s;
+  }
+  input:focus { border-color:var(--accent); }
+
+  .record-btn {
+    width:100%; background:var(--accent); color:#000;
+    font-family:'Bebas Neue',cursive; font-size:1.5rem; letter-spacing:3px;
+    padding:14px; border:none; border-radius:8px; cursor:pointer; transition:all 0.15s;
+  }
+  .record-btn:hover    { filter:brightness(1.1); transform:translateY(-2px); box-shadow:0 8px 24px rgba(249,115,22,0.3); }
+  .record-btn:disabled { opacity:0.4; cursor:not-allowed; transform:none; box-shadow:none; }
+
+  @keyframes flash-anim { 0%{background:var(--green)} 100%{background:var(--accent)} }
+  .flash { animation:flash-anim 0.4s ease; }
+
+  .results-panel  { display:flex; flex-direction:column; }
+  .results-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .results-header h2 { margin:0; }
+
+  .count-badge { background:var(--accent); color:#000; font-family:'DM Mono',monospace; font-size:0.8rem; padding:4px 12px; border-radius:20px; }
+
+  .table-wrap { overflow-y:auto; max-height:500px; border-radius:8px; border:1px solid var(--border); }
+  table { width:100%; border-collapse:collapse; }
+  thead { position:sticky; top:0; background:var(--surface); z-index:1; }
+  th { font-family:'DM Mono',monospace; font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); padding:12px 16px; text-align:left; border-bottom:1px solid var(--border); }
+  td { padding:12px 16px; border-bottom:1px solid rgba(30,41,59,0.5); font-family:'DM Mono',monospace; font-size:0.95rem; }
+  tr:last-child td { border-bottom:none; }
+  tbody tr { transition:background 0.1s; }
+  tbody tr:hover { background:rgba(249,115,22,0.05); }
+
+  .place-1 { color:var(--accent2); font-weight:600; }
+  .place-2 { color:#94a3b8; }
+  .place-3 { color:#b45309; }
+  .bib-cell  { color:var(--accent); font-weight:600; font-size:1.05rem; }
+  .time-cell { color:var(--text); }
+
+  .delete-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; padding:2px 6px; border-radius:4px; transition:color 0.15s; }
+  .delete-btn:hover { color:var(--red); }
+
+  .empty-state { padding:60px 20px; text-align:center; color:var(--muted); font-family:'DM Mono',monospace; font-size:0.9rem; }
+
+  .status-bar { text-align:center; padding:10px; font-family:'DM Mono',monospace; font-size:0.8rem; color:var(--muted); letter-spacing:1px; }
+  .status-bar.running { color:var(--green); }
+  .status-bar.stopped { color:var(--red); }
+
+  .pulse { display:inline-block; width:8px; height:8px; background:var(--green); border-radius:50%; margin-right:6px; animation:pulse-anim 1s infinite; }
+  @keyframes pulse-anim { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes slide-in { from{opacity:0;background:rgba(34,197,94,0.15)} to{opacity:1;background:transparent} }
+  .new-row { animation:slide-in 0.3s ease; }
+
+  /* ===== MODAL ===== */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); z-index:100; align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:32px; width:480px; max-width:95vw; box-shadow:0 24px 80px rgba(0,0,0,0.6); animation:modal-in 0.2s ease; }
+  @keyframes modal-in { from{opacity:0;transform:scale(0.95) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+  .modal-title    { font-family:'Bebas Neue',cursive; font-size:1.8rem; letter-spacing:3px; color:var(--accent); margin-bottom:6px; }
+  .modal-subtitle { font-size:0.8rem; color:var(--muted); font-family:'DM Mono',monospace; margin-bottom:28px; }
+  .settings-group { display:flex; flex-direction:column; gap:18px; margin-bottom:28px; }
+  .settings-field { display:flex; flex-direction:column; gap:6px; }
+  .settings-field input[type="text"] { font-size:1rem; padding:10px 14px; }
+  .emoji-picker { display:grid; grid-template-columns:repeat(8,1fr); gap:6px; margin-top:4px; }
+  .emoji-btn { background:var(--surface); border:2px solid transparent; border-radius:8px; font-size:1.4rem; padding:6px; cursor:pointer; transition:all 0.12s; text-align:center; line-height:1; }
+  .emoji-btn:hover   { background:var(--border); transform:scale(1.15); }
+  .emoji-btn.selected { border-color:var(--accent); background:rgba(249,115,22,0.15); }
+  .preview-box  { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 20px; margin-bottom:24px; }
+  .preview-logo { font-family:'Bebas Neue',cursive; font-size:1.6rem; letter-spacing:2px; color:var(--accent); display:flex; align-items:center; gap:8px; }
+  .preview-logo span { color:var(--text); }
+  .modal-actions { display:flex; gap:10px; justify-content:flex-end; }
+  .btn-cancel { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
+  .btn-save   { background:var(--accent);  color:#000; }
+  .btn-save:hover { filter:brightness(1.1); }
+
+  @media (max-width:768px) {
+    main { grid-template-columns:1fr; padding:16px; }
+    header { padding:14px 16px; }
+    .master-clock { font-size:2rem; }
+    .logo { font-size:1.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== LOCK SCREEN ===== -->
+<div id="lockScreen">
+  <div class="lock-card">
+    <div class="lock-icon">🔒</div>
+    <div class="lock-title">Fun Run Timer</div>
+    <div class="lock-sub">Enter password to continue</div>
+
+    <div class="pin-dots" id="pinDots"></div>
+
+    <div class="pin-wrap">
+      <input type="password" id="pinInput" placeholder="Password"
+             autocomplete="off" autocorrect="off" spellcheck="false"
+             oninput="onPinInput()" onkeydown="if(event.key==='Enter') tryUnlock()">
+      <button class="pin-eye" id="pinEye" onclick="toggleEye()" title="Show/hide">👁</button>
+    </div>
+
+    <button class="lock-btn" id="unlockBtn" onclick="tryUnlock()">UNLOCK →</button>
+    <div class="lock-error"    id="lockError"></div>
+    <div class="lock-attempts" id="lockAttempts"></div>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="appShell">
+  <header>
+    <div class="logo" id="headerLogo">🏃 Fun <span>Run</span> Timer</div>
+    <div class="master-clock" id="masterClock">00:00:00.0</div>
+    <div class="controls">
+      <button class="btn btn-start"    id="startBtn"  onclick="startRace()">▶ Start</button>
+      <button class="btn btn-stop"     id="stopBtn"   onclick="stopRace()"  disabled>⏹ Stop</button>
+      <button class="btn btn-reset"    onclick="resetRace()">↺ Reset</button>
+      <button class="btn btn-export"   onclick="exportExcel()">⬇ Export</button>
+      <button class="btn btn-settings" onclick="openSettings()" title="Customize">⚙</button>
+      <button class="btn btn-lock"     onclick="lockApp()"      title="Lock screen">🔒</button>
+    </div>
+  </header>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal" onclick="if(event.target===this)closeSettings()">
+    <div class="modal">
+      <div class="modal-title">⚙ Control Panel</div>
+      <div class="modal-subtitle">Customize your event branding</div>
+      <div style="font-size:0.72rem;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Live Preview</div>
+      <div class="preview-box">
+        <div class="preview-logo">
+          <span id="previewEmoji">🏃</span>
+          <span id="previewTitle">Fun <span>Run Timer</span></span>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-field">
+          <label>Event / Race Name</label>
+          <input type="text" id="settingTitle" placeholder="e.g. Maple 5K Run" maxlength="40" oninput="updatePreview()">
+        </div>
+        <div class="settings-field">
+          <label>Logo Emoji</label>
+          <div class="emoji-picker" id="emojiPicker"></div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closeSettings()">Cancel</button>
+        <button class="btn btn-save"   onclick="saveSettings()">✓ Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar" id="statusBar">— READY TO START —</div>
+
+  <main>
+    <div class="panel">
+      <h2>Record Finish</h2>
+      <div class="bib-input-group">
+        <div class="bib-field">
+          <label>Bib Number</label>
+          <input type="number" id="bibInput" placeholder="e.g. 42" min="1" max="9999"
+                 onkeydown="if(event.key==='Enter') recordFinish()">
+        </div>
+        <div class="bib-field">
+          <label>Runner Name (optional)</label>
+          <input type="text" id="nameInput" placeholder="e.g. Jane Doe"
+                 onkeydown="if(event.key==='Enter') recordFinish()">
+        </div>
+        <button class="record-btn" id="recordBtn" onclick="recordFinish()" disabled>RECORD FINISH</button>
+      </div>
+      <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
+        <label style="display:block;margin-bottom:8px">Quick Tips</label>
+        <div style="font-size:0.8rem;color:var(--muted);line-height:1.8;font-family:'DM Mono',monospace">
+          → Press <strong style="color:var(--text)">Start</strong> when gun fires<br>
+          → Type bib# — cursor auto-jumps<br>
+          → Press <strong style="color:var(--accent2)">Enter</strong> anywhere to record<br>
+          → 🔒 Lock when stepping away
+        </div>
+      </div>
+    </div>
+
+    <div class="panel results-panel">
+      <div class="results-header">
+        <h2>Finishers</h2>
+        <span class="count-badge" id="countBadge">0 finishers</span>
+      </div>
+      <div class="table-wrap">
+        <div class="empty-state" id="emptyState">No finishers recorded yet.<br>Start the race and begin recording!</div>
+        <table id="resultsTable" style="display:none">
+          <thead>
+            <tr><th>Place</th><th>Bib #</th><th>Name</th><th>Finish Time</th><th>Clock Time</th><th></th></tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ===== LOCK / PASSWORD =====
+const PASSWORD    = 'aleco#123';
+let failedAttempts = 0;
+let coolingDown    = false;
+let isLocked       = true;
+
+function buildDots(len) {
+  document.getElementById('pinDots').innerHTML =
+    Array.from({length: Math.max(len, 8)}, (_, i) =>
+      `<div class="pin-dot${i < len ? ' filled' : ''}"></div>`
+    ).join('');
+}
+
+function onPinInput() {
+  buildDots(document.getElementById('pinInput').value.length);
+  document.getElementById('lockError').textContent    = '';
+  document.getElementById('lockAttempts').textContent = '';
+}
+
+function toggleEye() {
+  const inp = document.getElementById('pinInput');
+  const btn = document.getElementById('pinEye');
+  inp.type   = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+function tryUnlock() {
+  if (coolingDown) return;
+  const inp = document.getElementById('pinInput');
+  if (inp.value === PASSWORD) {
+    failedAttempts = 0;
+    inp.value = '';
+    buildDots(0);
+    document.getElementById('lockError').textContent    = '';
+    document.getElementById('lockAttempts').textContent = '';
+    doUnlock();
+  } else {
+    failedAttempts++;
+    inp.classList.add('shake');
+    setTimeout(() => inp.classList.remove('shake'), 400);
+    inp.value = '';
+    buildDots(0);
+
+    if (failedAttempts >= 5) {
+      coolingDown = true;
+      document.getElementById('unlockBtn').disabled = true;
+      inp.disabled = true;
+      let t = 30;
+      document.getElementById('lockError').textContent = `⛔ Too many attempts — wait ${t}s`;
+      const iv = setInterval(() => {
+        t--;
+        document.getElementById('lockError').textContent = `⛔ Too many attempts — wait ${t}s`;
+        if (t <= 0) {
+          clearInterval(iv);
+          coolingDown = false; failedAttempts = 0;
+          inp.disabled = false;
+          document.getElementById('unlockBtn').disabled = false;
+          document.getElementById('lockError').textContent    = '';
+          document.getElementById('lockAttempts').textContent = '';
+          inp.focus();
+        }
+      }, 1000);
+    } else {
+      const left = 5 - failedAttempts;
+      document.getElementById('lockError').textContent    = '✗ Incorrect password';
+      document.getElementById('lockAttempts').textContent = `${left} attempt${left !== 1 ? 's' : ''} remaining`;
+    }
+    inp.focus();
+  }
+}
+
+function doUnlock() {
+  isLocked = false;
+  const ls = document.getElementById('lockScreen');
+  ls.classList.add('hidden');
+  setTimeout(() => ls.style.display = 'none', 380);
+  document.getElementById('appShell').classList.add('visible');
+  setTimeout(() => document.getElementById('bibInput').focus(), 400);
+}
+
+function lockApp() {
+  isLocked = true;
+  document.getElementById('appShell').classList.remove('visible');
+  const ls  = document.getElementById('lockScreen');
+  ls.style.display = 'flex';
+  ls.classList.remove('hidden');
+  const inp = document.getElementById('pinInput');
+  inp.value = ''; inp.type = 'password'; inp.disabled = false;
+  document.getElementById('pinEye').textContent       = '👁';
+  document.getElementById('lockError').textContent    = '';
+  document.getElementById('lockAttempts').textContent = '';
+  document.getElementById('unlockBtn').disabled       = false;
+  buildDots(0);
+  setTimeout(() => inp.focus(), 100);
+}
+
+buildDots(0);
+document.getElementById('pinInput').focus();
+
+// ===== TIMER =====
+let raceStartTime = null;
+let timerInterval = null;
+let finishers     = [];
+let isRunning     = false;
+
+function pad(n, len=2) { return String(Math.floor(n)).padStart(len,'0'); }
+
+function formatElapsed(ms) {
+  const s = ms / 1000;
+  return `${pad(s/3600)}:${pad((s%3600)/60)}:${pad(s%60)}.${Math.floor((ms%1000)/100)}`;
+}
+
+function getElapsed() { return raceStartTime ? Date.now() - raceStartTime : 0; }
+
+function startRace() {
+  raceStartTime = Date.now(); isRunning = true;
+  timerInterval = setInterval(() =>
+    document.getElementById('masterClock').textContent = formatElapsed(getElapsed()), 100);
+  document.getElementById('startBtn').disabled  = true;
+  document.getElementById('stopBtn').disabled   = false;
+  document.getElementById('recordBtn').disabled = false;
+  const sb = document.getElementById('statusBar');
+  sb.className = 'status-bar running';
+  sb.innerHTML = '<span class="pulse"></span>RACE IN PROGRESS';
+  document.getElementById('bibInput').focus();
+}
+
+function stopRace() {
+  if (!isRunning) return;
+  clearInterval(timerInterval); isRunning = false;
+  document.getElementById('stopBtn').disabled   = true;
+  document.getElementById('startBtn').disabled  = false;
+  document.getElementById('recordBtn').disabled = true;
+  const sb = document.getElementById('statusBar');
+  sb.className   = 'status-bar stopped';
+  sb.textContent = `— RACE STOPPED AT ${document.getElementById('masterClock').textContent} —`;
+}
+
+function resetRace() {
+  if (isRunning) stopRace();
+  if (finishers.length > 0 && !confirm('Reset will clear all finishers. Continue?')) return;
+  clearInterval(timerInterval);
+  raceStartTime = null; isRunning = false; finishers = [];
+  document.getElementById('masterClock').textContent = '00:00:00.0';
+  document.getElementById('startBtn').disabled  = false;
+  document.getElementById('stopBtn').disabled   = true;
+  document.getElementById('recordBtn').disabled = true;
+  document.getElementById('bibInput').value     = '';
+  document.getElementById('nameInput').value    = '';
+  const sb = document.getElementById('statusBar');
+  sb.className   = 'status-bar';
+  sb.textContent = '— READY TO START —';
+  renderTable();
+}
+
+function recordFinish() {
+  if (!isRunning) return;
+  const bibVal = document.getElementById('bibInput').value.trim();
+  if (!bibVal) {
+    document.getElementById('bibInput').focus();
+    document.getElementById('bibInput').style.borderColor = 'var(--red)';
+    setTimeout(() => document.getElementById('bibInput').style.borderColor = '', 600);
+    return;
+  }
+  const bib  = parseInt(bibVal);
+  const name = document.getElementById('nameInput').value.trim();
+  const dup  = finishers.find(f => f.bib === bib);
+  if (dup && !confirm(`Bib #${bib} already at place ${dup.place}. Record again?`)) return;
+
+  finishers.push({ bib, name, elapsed: getElapsed(), clockTime: new Date().toLocaleTimeString(), place: finishers.length + 1 });
+
+  const btn = document.getElementById('recordBtn');
+  btn.classList.add('flash');
+  setTimeout(() => btn.classList.remove('flash'), 400);
+  document.getElementById('bibInput').value  = '';
+  document.getElementById('nameInput').value = '';
+  document.getElementById('bibInput').focus();
+  renderTable();
+}
+
+function deleteFinisher(idx) {
+  if (!confirm(`Remove bib #${finishers[idx].bib}?`)) return;
+  finishers.splice(idx, 1);
+  finishers.forEach((f, i) => f.place = i + 1);
+  renderTable();
+}
+
+function placeClass(p) { return p===1?'place-1':p===2?'place-2':p===3?'place-3':''; }
+function placeMedal(p) { return p===1?'🥇':p===2?'🥈':p===3?'🥉':p; }
+
+function renderTable() {
+  const empty = document.getElementById('emptyState');
+  const table = document.getElementById('resultsTable');
+  document.getElementById('countBadge').textContent = `${finishers.length} finisher${finishers.length!==1?'s':''}`;
+  if (!finishers.length) { empty.style.display='block'; table.style.display='none'; return; }
+  empty.style.display = 'none'; table.style.display = 'table';
+  document.getElementById('resultsBody').innerHTML = finishers.map((f, i) => `
+    <tr class="${i===finishers.length-1?'new-row':''}">
+      <td class="${placeClass(f.place)}">${placeMedal(f.place)}</td>
+      <td class="bib-cell">#${f.bib}</td>
+      <td style="color:var(--muted)">${f.name||'—'}</td>
+      <td class="time-cell">${formatElapsed(f.elapsed)}</td>
+      <td style="color:var(--muted);font-size:0.85rem">${f.clockTime}</td>
+      <td><button class="delete-btn" onclick="deleteFinisher(${i})">✕</button></td>
+    </tr>`).join('');
+}
+
+// ===== GLOBAL HOTKEY =====
+document.addEventListener('keydown', e => {
+  if (isLocked) return;
+  if (document.getElementById('settingsModal').classList.contains('open')) return;
+  const bib     = document.getElementById('bibInput');
+  const inInput = ['INPUT','TEXTAREA'].includes(document.activeElement.tagName);
+  if (e.key === 'Enter') {
+    bib.value.trim() ? recordFinish() : bib.focus();
+    e.preventDefault();
+  } else if (/^\d$/.test(e.key) && !inInput) {
+    bib.focus();
+  }
+});
+
+// ===== SETTINGS =====
+const EMOJIS = ['🏃','🏅','🎽','🏁','⚡','🌟','🔥','💨','🚀','🦅','🌈','🎯','🥇','🏆','🎉','🦁'];
+let currentEmoji = '🏃';
+let currentTitle = 'Fun Run Timer';
+
+function buildEmojiPicker() {
+  document.getElementById('emojiPicker').innerHTML = EMOJIS.map(e =>
+    `<button class="emoji-btn${e===currentEmoji?' selected':''}" onclick="selectEmoji('${e}')">${e}</button>`
+  ).join('');
+}
+
+function selectEmoji(e) { currentEmoji = e; buildEmojiPicker(); updatePreview(); }
+
+function updatePreview() {
+  const t = document.getElementById('settingTitle').value.trim() || 'Fun Run Timer';
+  document.getElementById('previewEmoji').textContent = currentEmoji;
+  const p = t.split(' ');
+  document.getElementById('previewTitle').innerHTML =
+    `<span style="color:var(--accent)">${p[0]}</span>${p.length>1?' <span style="color:var(--text)">'+p.slice(1).join(' ')+'</span>':''}`;
+}
+
+function openSettings() {
+  document.getElementById('settingTitle').value = currentTitle === 'Fun Run Timer' ? '' : currentTitle;
+  buildEmojiPicker(); updatePreview();
+  document.getElementById('settingsModal').classList.add('open');
+}
+
+function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
+
+function saveSettings() {
+  currentTitle = document.getElementById('settingTitle').value.trim() || 'Fun Run Timer';
+  const p      = currentTitle.split(' ');
+  document.getElementById('headerLogo').innerHTML =
+    `${currentEmoji} <span style="color:var(--accent)">${p[0]}</span>${p.length>1?' <span>'+p.slice(1).join(' ')+'</span>':''}`;
+  document.title = `${currentEmoji} ${currentTitle}`;
+  closeSettings();
+}
+
+// ===== EXPORT =====
+function exportExcel() {
+  if (!finishers.length) { alert('No finishers to export yet!'); return; }
+  const d    = new Date().toLocaleDateString();
+  const data = [
+    [`${currentEmoji} ${currentTitle} — Results`],
+    [`Date: ${d}`], [],
+    ['Place','Bib #','Runner Name','Finish Time','Clock Time']
+  ];
+  finishers.forEach(f => data.push([f.place, f.bib, f.name||'', formatElapsed(f.elapsed), f.clockTime]));
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:8},{wch:8},{wch:22},{wch:14},{wch:14}];
+  ['A4','B4','C4','D4','E4'].forEach(c => {
+    if (ws[c]) ws[c].s = { font:{bold:true}, fill:{fgColor:{rgb:'F97316'}} };
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Results');
+  XLSX.writeFile(wb, `FunRun_Results_${d.replace(/\//g,'-')}.xlsx`);
+}
+</script>
+</body>
+</html>
