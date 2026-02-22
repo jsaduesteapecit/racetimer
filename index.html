@@ -7,8 +7,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Fun Run Timer">
-<title>🏃 Fun Run Timer</title>
+<meta name="apple-mobile-web-app-title" content="MSD Race Timer">
+<title>🏃 MSD Race Timer</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -237,7 +237,7 @@
 <div id="lockScreen">
   <div class="lock-card">
     <div class="lock-icon">🔒</div>
-    <div class="lock-title">Fun Run Timer</div>
+    <div class="lock-title">MSD RACE Timer</div>
     <div class="lock-sub">Enter password to continue</div>
 
     <div class="pin-dots" id="pinDots"></div>
@@ -258,7 +258,7 @@
 <!-- ===== APP ===== -->
 <div id="appShell">
   <header>
-    <div class="logo" id="headerLogo">🏃 Fun <span>Run</span> Timer</div>
+    <div class="logo" id="headerLogo">🏃 MSD <span>Race</span> Timer</div>
     <div class="master-clock" id="masterClock">00:00:00.0</div>
     <div class="controls">
       <button class="btn btn-start"    id="startBtn"  onclick="startRace()">▶ Start</button>
@@ -285,7 +285,7 @@
       <div class="settings-group">
         <div class="settings-field">
           <label>Event / Race Name</label>
-          <input type="text" id="settingTitle" placeholder="e.g. Maple 5K Run" maxlength="40" oninput="updatePreview()">
+          <input type="text" id="settingTitle" placeholder="e.g. NEA LAKDAK 5K Run" maxlength="40" oninput="updatePreview()">
         </div>
         <div class="settings-field">
           <label>Logo Emoji</label>
@@ -307,12 +307,12 @@
       <div class="bib-input-group">
         <div class="bib-field">
           <label>Bib Number</label>
-          <input type="number" id="bibInput" placeholder="e.g. 42" min="1" max="9999"
+          <input type="number" id="bibInput" placeholder="e.g. 12" min="1" max="9999"
                  onkeydown="if(event.key==='Enter') recordFinish()">
         </div>
         <div class="bib-field">
           <label>Runner Name (optional)</label>
-          <input type="text" id="nameInput" placeholder="e.g. Jane Doe"
+          <input type="text" id="nameInput" placeholder="e.g. Jojo Sadueste"
                  onkeydown="if(event.key==='Enter') recordFinish()">
         </div>
         <button class="record-btn" id="recordBtn" onclick="recordFinish()" disabled>RECORD FINISH</button>
@@ -569,7 +569,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ===== SETTINGS =====
-const EMOJIS = ['🏃','🏅','🎽','🏁','⚡','🌟','🔥','💨','🚀','🦅','🌈','🎯','🥇','🏆','🎉','🦁'];
+const EMOJIS = ['🏃','🏅','🎽','🏁','⚡','🌟','🔥','💨','🚀','🦅','🌈','🎯','🥇','🏆','🎉','🤡'];
 let currentEmoji = '🏃';
 let currentTitle = 'Fun Run Timer';
 
@@ -582,7 +582,7 @@ function buildEmojiPicker() {
 function selectEmoji(e) { currentEmoji = e; buildEmojiPicker(); updatePreview(); }
 
 function updatePreview() {
-  const t = document.getElementById('settingTitle').value.trim() || 'Fun Run Timer';
+  const t = document.getElementById('settingTitle').value.trim() || 'MSD Race Timer';
   document.getElementById('previewEmoji').textContent = currentEmoji;
   const p = t.split(' ');
   document.getElementById('previewTitle').innerHTML =
@@ -590,7 +590,7 @@ function updatePreview() {
 }
 
 function openSettings() {
-  document.getElementById('settingTitle').value = currentTitle === 'Fun Run Timer' ? '' : currentTitle;
+  document.getElementById('settingTitle').value = currentTitle === 'MSD Race Timer' ? '' : currentTitle;
   buildEmojiPicker(); updatePreview();
   document.getElementById('settingsModal').classList.add('open');
 }
@@ -598,7 +598,7 @@ function openSettings() {
 function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
 
 function saveSettings() {
-  currentTitle = document.getElementById('settingTitle').value.trim() || 'Fun Run Timer';
+  currentTitle = document.getElementById('settingTitle').value.trim() || 'MSD Race Timer';
   const p      = currentTitle.split(' ');
   document.getElementById('headerLogo').innerHTML =
     `${currentEmoji} <span style="color:var(--accent)">${p[0]}</span>${p.length>1?' <span>'+p.slice(1).join(' ')+'</span>':''}`;
@@ -623,7 +623,7 @@ function exportExcel() {
   });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Results');
-  XLSX.writeFile(wb, `FunRun_Results_${d.replace(/\//g,'-')}.xlsx`);
+  XLSX.writeFile(wb, `Racetimer_Results_${d.replace(/\//g,'-')}.xlsx`);
 }
 </script>
 </body>
